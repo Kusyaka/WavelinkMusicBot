@@ -1,9 +1,11 @@
 from Music import *
+from json import loads
 
 bot = discord.Bot()
 
-with open("config.json") as f:
-    config = json.load(f)
+with open("config.json", encoding="utf-8") as f:
+    config = loads(f.read())
+    f.close()
 
 
 @bot.event
