@@ -8,7 +8,7 @@ with open("config.json") as f:
 
 @bot.event
 async def on_ready():
-    print(bot.user)
+    print(bot.user, flush=True)
 
 
 bot.add_cog(Music(bot, config))

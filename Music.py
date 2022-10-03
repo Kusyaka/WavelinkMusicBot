@@ -83,7 +83,7 @@ class Music(discord.Cog):
 
     @discord.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node):
-        print(f"Node: <{node.identifier}> is ready!")
+        print(f"Node: <{node.identifier}> is ready!", flush=True)
 
     @discord.slash_command()
     async def play(self, ctx: discord.ApplicationContext, query: str):
