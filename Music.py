@@ -8,6 +8,7 @@ from pycord import wavelink
 import json
 
 from enum import Enum
+from utils import locale, configGet
 
 
 class Sites(Enum):
@@ -90,7 +91,7 @@ class Music(discord.Cog):
         url_type = identify_url(query)
 
         if not ctx.response.is_done():
-            await ctx.respond("OK")
+            await ctx.respond(locale("play"))
 
         if not ctx.voice_client:
             vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -142,7 +143,7 @@ class Music(discord.Cog):
     @discord.slash_command()
     async def queue(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
-        output = f"**Now playing:**\n[{player.source.title}](<{player.source.info['uri']}>)\n**Next:**\n"
+        output = locale("queue").format(player.source.title, player.source.info['uri']) # f"**Now playing:**\n[{player.source.title}](<{player.source.info['uri']}>)\n**Next:**\n"
         que = list(player.queue)
         que.reverse()
         for i in range(10 if len(que) > 10 else len(que)):
@@ -154,13 +155,13 @@ class Music(discord.Cog):
     async def skip(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await player.seek(int(player.source.duration * 1000))
-        await ctx.respond("Skipped")
+        await ctx.respond(locale("skip"))
 
     @discord.slash_command()
     async def stop(self, ctx):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await self._stop(player)
-        await ctx.respond("Stopped")
+        await ctx.respond(locale("stop"))
 
     @discord.slash_command()
     async def shuffle(self, ctx: discord.ApplicationContext):
@@ -169,7 +170,7 @@ class Music(discord.Cog):
         random.shuffle(tmp)
         player.queue.clear()
         player.queue.extend(tmp)
-        await ctx.respond("Queue shuffled")
+        await ctx.respond(locale("shuffle"))
 
     @discord.slash_command()
     async def autoplay(self, ctx: discord.ApplicationContext):
@@ -178,9 +179,9 @@ class Music(discord.Cog):
         player.autoplay = not player.autoplay
 
         if player.autoplay:
-            await ctx.respond("Autoplay enabled")
+            await ctx.respond(locale("autoplay_on"))
         else:
-            await ctx.respond("Autoplay disabled")
+            await ctx.respond(locale("autoplay_off"))
 
     async def find_related(self, track: wavelink.Track, player: wavelink.Player):
         data = requests.get(

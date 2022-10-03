@@ -1,0 +1,9 @@
+{
+    "play": "OK",
+    "queue": "**Now playing:**\n[{0}](<{1}>)\n**Next:**\n",
+    "skip": "Skipped",
+    "stop": "Stopped",
+    "shuffle": "Queue shuffled",
+    "autoplay_on": "Autoplay enabled",
+    "autoplay_off": "Autoplay disabled"
+}
