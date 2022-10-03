@@ -1,13 +1,14 @@
-import random
-import re
-
-import requests
 import discord
+
+from re import findall, match
 from pycord.wavelink.ext import spotify
 from pycord import wavelink
-import json
+from random import shuffle
+from json import loads
+from requests import get
 
 from enum import Enum
+from utils import locale
 
 
 class Sites(Enum):
@@ -83,14 +84,14 @@ class Music(discord.Cog):
 
     @discord.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node):
-        print(f"Node: <{node.identifier}> is ready!")
+        print(f"Node: <{node.identifier}> is ready!", flush=True)
 
     @discord.slash_command()
     async def play(self, ctx: discord.ApplicationContext, query: str):
         url_type = identify_url(query)
 
         if not ctx.response.is_done():
-            await ctx.respond("OK")
+            await ctx.respond(locale("play"))
 
         if not ctx.voice_client:
             vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -142,7 +143,7 @@ class Music(discord.Cog):
     @discord.slash_command()
     async def queue(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
-        output = f"**Now playing:**\n[{player.source.title}](<{player.source.info['uri']}>)\n**Next:**\n"
+        output = locale("queue").format(player.source.title, player.source.info['uri']) # f"**Now playing:**\n[{player.source.title}](<{player.source.info['uri']}>)\n**Next:**\n"
         que = list(player.queue)
         que.reverse()
         for i in range(10 if len(que) > 10 else len(que)):
@@ -154,22 +155,22 @@ class Music(discord.Cog):
     async def skip(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await player.seek(int(player.source.duration * 1000))
-        await ctx.respond("Skipped")
+        await ctx.respond(locale("skip"))
 
     @discord.slash_command()
     async def stop(self, ctx):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await self._stop(player)
-        await ctx.respond("Stopped")
+        await ctx.respond(locale("stop"))
 
     @discord.slash_command()
     async def shuffle(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         tmp = list(player.queue)
-        random.shuffle(tmp)
+        shuffle(tmp)
         player.queue.clear()
         player.queue.extend(tmp)
-        await ctx.respond("Queue shuffled")
+        await ctx.respond(locale("shuffle"))
 
     @discord.slash_command()
     async def autoplay(self, ctx: discord.ApplicationContext):
@@ -178,14 +179,14 @@ class Music(discord.Cog):
         player.autoplay = not player.autoplay
 
         if player.autoplay:
-            await ctx.respond("Autoplay enabled")
+            await ctx.respond(locale("autoplay_on"))
         else:
-            await ctx.respond("Autoplay disabled")
+            await ctx.respond(locale("autoplay_off"))
 
     async def find_related(self, track: wavelink.Track, player: wavelink.Player):
-        data = requests.get(
+        data = get(
             f"https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId={track.identifier}&type=video&order=rating&key={self.config['youtube_data_api_key']}")
-        data = json.loads(data.content)["items"]
+        data = loads(data.content)["items"]
         await player.play(await wavelink.YouTubeTrack.search(query=data[1]["id"]['videoId'], return_first=True))
 
     async def _stop(self, player):
@@ -194,12 +195,12 @@ class Music(discord.Cog):
         await player.disconnect(force=False)
 
     async def ensure_url(self, url):
-        found = re.findall(r'(https?://\S+)', url)
+        found = findall(r'(https?://\S+)', url)
         output = []
         for i in found:
             ensured = ""
             for c in i:
-                m = re.match(r"[A-Za-z\d_.\-~:/?=%]", c)
+                m = match(r"[A-Za-z\d_.\-~:/?=%]", c)
                 if m is not None:
                     ensured += c
             output.append(ensured)
