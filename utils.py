@@ -3,6 +3,7 @@ from os import sep
 from traceback import print_exc
 from typing import Any, Dict, List, Union
 
+
 def jsonLoad(filename) -> Union[Dict, List, str]:
     """Loads arg1 as json and returns its contents"""
     with open(filename, "r", encoding='utf8') as file:
@@ -17,6 +18,7 @@ def jsonLoad(filename) -> Union[Dict, List, str]:
         file.close()
     return output
 
+
 def configGet(key: str, *args: str) -> Any:
     """Get value of the config key
     ### Args:
@@ -24,35 +26,36 @@ def configGet(key: str, *args: str) -> Any:
         * *args (str): Path to key like: dict[args][key].
     ### Returns:
         * any: Value of provided key
-    """    
+    """
     this_dict = jsonLoad("config.json")
     this_key = this_dict
     for dict_key in args:
-        this_key = this_key[dict_key] # type: ignore
-    return this_key[key] # type: ignore
+        this_key = this_key[dict_key]  # type: ignore
+    return this_key[key]  # type: ignore
 
-def locale(key: str, *args: str, locale=configGet("locale")) -> str:
+
+def locale(key: str, *args: str, locale_val=configGet("locale")) -> str:
     """Get value of locale string
     ### Args:
         * key (str): The last key of the locale's keys path.
         * *args (list): Path to key like: dict[args][key].
-        * locale (str): Locale to looked up in. Defaults to config's locale value.
+        * locale_val (str): Locale to looked up in. Defaults to config's locale value.
     ### Returns:
-        * any: Value of provided locale key
-    """ 
-    if (locale == None):
-        locale = configGet("locale")
-    
+        * str: Value of provided locale key
+    """
+    if locale_val is None:
+        locale_val = configGet("locale")
+
     try:
-        this_dict = jsonLoad(f'locale{sep}{locale}.json')
+        this_dict = jsonLoad(f'locale{sep}{locale_val}.json')
     except FileNotFoundError:
-        return f'⚠️ Locale in config is invalid: could not get "{key}" in {str(args)} from locale "{locale}"'
+        return f'⚠️ Locale in config is invalid: could not get "{key}" in {str(args)} from locale "{locale_val}"'
 
     this_key = this_dict
     for dict_key in args:
-        this_key = this_key[dict_key] # type: ignore
-        
+        this_key = this_key[dict_key]  # type: ignore
+
     try:
-        return this_key[key] # type: ignore
+        return this_key[key]  # type: ignore
     except KeyError:
-        return f'⚠️ Locale in config is invalid: could not get "{key}" in {str(args)} from locale "{locale}"'
+        return f'⚠️ Locale in config is invalid: could not get "{key}" in {str(args)} from locale "{locale_val}"'

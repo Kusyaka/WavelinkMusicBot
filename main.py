@@ -5,7 +5,6 @@ bot = discord.Bot()
 
 with open("config.json", encoding="utf-8") as f:
     config = loads(f.read())
-    f.close()
 
 
 @bot.event

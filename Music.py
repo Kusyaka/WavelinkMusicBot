@@ -1,3 +1,5 @@
+import datetime
+
 import discord
 
 from re import findall, match
@@ -65,10 +67,10 @@ class Music(discord.Cog):
 
     @discord.Cog.listener()
     async def on_wavelink_track_end(self, player: wavelink.Player, track, reason):
-        # await self.find_related(track)
         if reason == 'FINISHED':
             try:
                 await player.play(player.queue.pop())
+                await player.context.send(embed=self.now_playing(player))
             except wavelink.QueueEmpty:
                 if player.autoplay:
                     await self.find_related(track, player)
@@ -88,10 +90,7 @@ class Music(discord.Cog):
 
     @discord.slash_command()
     async def play(self, ctx: discord.ApplicationContext, query: str):
-        url_type = identify_url(query)
-
-        if not ctx.response.is_done():
-            await ctx.respond(locale("play"))
+        url_type = identify_url(query)      # identify query type
 
         if not ctx.voice_client:
             vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -100,9 +99,11 @@ class Music(discord.Cog):
 
         node = wavelink.NodePool.get_node()
         player = node.get_player(ctx.guild)
+        if not hasattr(player, "context"):
+            player.context = ctx
 
         if url_type == Sites.Spotify_Playlist:
-            if "/user/" in query:
+            if "/user/" in query:                   # remove user from Spotify playlist url
                 query = query.split("/user/")
                 query[1] = "/".join((query[1].split("/"))[1:])
                 query = "/".join(query)
@@ -134,21 +135,32 @@ class Music(discord.Cog):
         else:
             vc.queue.put_at_front(track)
 
+        if not ctx.response.is_done():
+            await ctx.respond(embed=self.now_playing(player))
+
     @discord.message_command(name="Play in voice")
     async def _play(self, ctx: discord.ApplicationContext, message: discord.Message):
-        url = await self.ensure_url(message.clean_content)
+        url = await self.ensure_url(message.clean_content)      # get urls from message to pass them into self.play
         for i in url:
             await self.play(ctx, i)
 
     @discord.slash_command()
     async def queue(self, ctx: discord.ApplicationContext):
+
+        # Displays next 10 tracks in queue
+
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
-        output = locale("queue").format(player.source.title, player.source.info['uri']) # f"**Now playing:**\n[{player.source.title}](<{player.source.info['uri']}>)\n**Next:**\n"
+        output = ""
         que = list(player.queue)
         que.reverse()
-        for i in range(10 if len(que) > 10 else len(que)):
+        ln = 10 if len(que) > 10 else len(que)
+        for i in range(ln):
             track = que[i]
             output += f"[{i + 1}] {track.title}\n"
+
+        if len(que) > 10:
+            output += f"... {len(que)-ln} in queue ..."
+
         await ctx.respond(output)
 
     @discord.slash_command()
@@ -188,6 +200,7 @@ class Music(discord.Cog):
             f"https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId={track.identifier}&type=video&order=rating&key={self.config['youtube_data_api_key']}")
         data = loads(data.content)["items"]
         await player.play(await wavelink.YouTubeTrack.search(query=data[1]["id"]['videoId'], return_first=True))
+        await player.context.send(embed=self.now_playing(player))
 
     async def _stop(self, player):
         await player.stop()
@@ -205,3 +218,13 @@ class Music(discord.Cog):
                     ensured += c
             output.append(ensured)
         return output
+
+    def now_playing(self, player: wavelink.Player) -> discord.Embed:
+        track = player.source
+        embed = discord.Embed(title=track.title, url=track.uri, description="Now playing", colour=0x46c077)
+        embed.set_thumbnail(url=track.thumbnail)
+        if track.is_stream():
+            embed.add_field(name="Duration", value="Stream", inline=True)
+        else:
+            embed.add_field(name="Duration", value=str(datetime.timedelta(seconds=track.duration)), inline=True)
+        return embed
