@@ -6,5 +6,25 @@
     "lavalink_passwd": "",
     "spotify_client_id": "",
     "spotify_client_secret": "",
-    "youtube_data_api_key": ""
+    "youtube_data_api_key": "",
+    "commands": {
+        "play": {
+            "ephemeral": false
+        },
+        "skip": {
+            "ephemeral": false
+        },
+        "queue": {
+            "ephemeral": false
+        },
+        "stop": {
+            "ephemeral": false
+        },
+        "shuffle": {
+            "ephemeral": false
+        },
+        "autoplay": {
+            "ephemeral": false
+        }
+    }
 }

@@ -8,7 +8,7 @@ from json import loads
 from requests import get
 
 from enum import Enum
-from utils import locale
+from utils import configGet, locale
 
 
 class Sites(Enum):
@@ -91,7 +91,7 @@ class Music(discord.Cog):
         url_type = identify_url(query)
 
         if not ctx.response.is_done():
-            await ctx.respond(locale("play"))
+            await ctx.respond(locale("play"), ephemeral=configGet("ephemeral", "commands", "play"))
 
         if not ctx.voice_client:
             vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -149,19 +149,19 @@ class Music(discord.Cog):
         for i in range(10 if len(que) > 10 else len(que)):
             track = que[i]
             output += f"[{i + 1}] {track.title}\n"
-        await ctx.respond(output)
+        await ctx.respond(output, ephemeral=configGet("ephemeral", "commands", "queue"))
 
     @discord.slash_command()
     async def skip(self, ctx: discord.ApplicationContext):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await player.seek(int(player.source.duration * 1000))
-        await ctx.respond(locale("skip"))
+        await ctx.respond(locale("skip"), ephemeral=configGet("ephemeral", "commands", "skip"))
 
     @discord.slash_command()
     async def stop(self, ctx):
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         await self._stop(player)
-        await ctx.respond(locale("stop"))
+        await ctx.respond(locale("stop"), ephemeral=configGet("ephemeral", "commands", "stop"))
 
     @discord.slash_command()
     async def shuffle(self, ctx: discord.ApplicationContext):
@@ -170,7 +170,7 @@ class Music(discord.Cog):
         shuffle(tmp)
         player.queue.clear()
         player.queue.extend(tmp)
-        await ctx.respond(locale("shuffle"))
+        await ctx.respond(locale("shuffle"), ephemeral=configGet("ephemeral", "commands", "shuffle"))
 
     @discord.slash_command()
     async def autoplay(self, ctx: discord.ApplicationContext):
@@ -179,9 +179,9 @@ class Music(discord.Cog):
         player.autoplay = not player.autoplay
 
         if player.autoplay:
-            await ctx.respond(locale("autoplay_on"))
+            await ctx.respond(locale("autoplay_on"), ephemeral=configGet("ephemeral", "commands", "autoplay"))
         else:
-            await ctx.respond(locale("autoplay_off"))
+            await ctx.respond(locale("autoplay_off"), ephemeral=configGet("ephemeral", "commands", "autoplay"))
 
     async def find_related(self, track: wavelink.Track, player: wavelink.Player):
         data = get(
