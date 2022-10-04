@@ -7,6 +7,7 @@
     "spotify_client_id": "",
     "spotify_client_secret": "",
     "youtube_data_api_key": "",
+    "single_guild": false,
     "commands": {
         "play": {
             "ephemeral": false
