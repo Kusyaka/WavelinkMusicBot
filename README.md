@@ -1,6 +1,8 @@
 # WavelinkMusicBot
 Discord music bot based on Lavalink and pycord.Wavelink
 
+Some features are using [Mubert](https://github.com/MubertAI/Mubert-Text-to-Music)
+
 ## Requirements
 * Python 3.8+
 * Lavalink

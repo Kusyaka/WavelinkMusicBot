@@ -1,7 +1,9 @@
+import asyncio
+import ctypes
 import datetime
 
 import discord
-
+import Mubert
 from re import findall, match
 from pycord.wavelink.ext import spotify
 from pycord import wavelink
@@ -26,6 +28,9 @@ class Sites(Enum):
     Unknown = "Unknown"
 
 
+instance = None
+
+
 def identify_url(url):
     if url is None:
         return Sites.Unknown
@@ -48,11 +53,28 @@ def identify_url(url):
     return Sites.Unknown
 
 
+def singleton(class_):
+    instances = {}
+
+    def getinstance(*args, **kwargs):
+        if class_ not in instances:
+            instances[class_] = class_(*args, **kwargs)
+        return instances[class_]
+
+    return getinstance
+
+
+@singleton
+class MubertWrapper(Mubert.Mubert):
+    pass
+
+
 class Music(discord.Cog):
     def __init__(self, bot: discord.Bot, config: dict):
         self.bot = bot
         self.config = config
         bot.loop.create_task(self.connect_nodes())
+        self.voice = {}
 
     async def connect_nodes(self):
         await self.bot.wait_until_ready()
@@ -90,7 +112,11 @@ class Music(discord.Cog):
 
     @discord.slash_command()
     async def play(self, ctx: discord.ApplicationContext, query: str):
-        url_type = identify_url(query)      # identify query type
+        if MubertWrapper().is_playing:
+            await ctx.respond("Stop mubert before playing music")
+            return
+
+        url_type = identify_url(query)  # identify query type
 
         if not ctx.voice_client:
             vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -103,7 +129,7 @@ class Music(discord.Cog):
             player.context = ctx
 
         if url_type == Sites.Spotify_Playlist:
-            if "/user/" in query:                   # remove user from Spotify playlist url
+            if "/user/" in query:  # remove user from Spotify playlist url
                 query = query.split("/user/")
                 query[1] = "/".join((query[1].split("/"))[1:])
                 query = "/".join(query)
@@ -140,7 +166,7 @@ class Music(discord.Cog):
 
     @discord.message_command(name="Play in voice")
     async def _play(self, ctx: discord.ApplicationContext, message: discord.Message):
-        url = await self.ensure_url(message.clean_content)      # get urls from message to pass them into self.play
+        url = await self.ensure_url(message.clean_content)  # get urls from message to pass them into self.play
         for i in url:
             await self.play(ctx, i)
 
@@ -159,7 +185,7 @@ class Music(discord.Cog):
             output += f"[{i + 1}] {track.title}\n"
 
         if len(que) > 10:
-            output += f"... {len(que)-ln} in queue ..."
+            output += f"... {len(que) - ln} in queue ..."
 
         await ctx.respond(output)
 
@@ -171,8 +197,11 @@ class Music(discord.Cog):
 
     @discord.slash_command()
     async def stop(self, ctx):
+        if ctx.guild_id in self.voice:
+            await self._disconnect_mubert(ctx.guild_id)
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
-        await self._stop(player)
+        if player is not None:
+            await self._stop(player)
         await ctx.respond(locale("stop"))
 
     @discord.slash_command()
@@ -194,6 +223,40 @@ class Music(discord.Cog):
             await ctx.respond(locale("autoplay_on"))
         else:
             await ctx.respond(locale("autoplay_off"))
+
+    @discord.slash_command()
+    async def mubert(self, ctx: discord.ApplicationContext, prompt: str, duration: int = 60):
+        await ctx.response.defer(ephemeral=True)
+        player = wavelink.NodePool.get_node().get_player(ctx.guild)
+        if player is not None:
+            if player.is_playing():
+                await ctx.respond("Disconnect bot before playing mubert")
+                return
+        mubert = MubertWrapper()
+        tags, url = mubert.generate_track_by_prompt(prompt=prompt, duration=duration)
+
+        mubert.is_playing = True
+
+        source = discord.FFmpegPCMAudio(url)  # , before_options="-codec:a libmp3lame"
+        voice_channel = ctx.author.voice.channel
+        voice = ctx.channel.guild.voice_client
+
+        def after(*args, **kwargs):
+            mubert.is_playing = False
+            self.bot.loop.create_task(self._disconnect_mubert(ctx.guild_id))
+
+        if voice is None:
+            voice = await voice_channel.connect()
+        elif voice.channel != voice_channel:
+            await voice.disconnect(force=True)
+            voice = await voice_channel.connect()
+        self.voice[ctx.guild_id] = voice
+        voice.play(source, after=after)
+        await ctx.respond(f"{prompt}\n{str(tags)}\n{url}")
+
+    async def _disconnect_mubert(self, guild_id):
+        await self.voice[guild_id].disconnect()
+        del self.voice[guild_id]
 
     async def find_related(self, track: wavelink.Track, player: wavelink.Player):
         data = get(
