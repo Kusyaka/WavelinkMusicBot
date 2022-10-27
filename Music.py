@@ -69,6 +69,14 @@ class MubertWrapper(Mubert.Mubert):
     pass
 
 
+def ensureTags(tags):
+    for i in tags:
+        if i not in MubertWrapper().mubert_tags:
+            return i
+    else:
+        return None
+
+
 class Music(discord.Cog):
     def __init__(self, bot: discord.Bot, config: dict):
         self.bot = bot
@@ -223,6 +231,72 @@ class Music(discord.Cog):
             await ctx.respond(locale("autoplay_on"))
         else:
             await ctx.respond(locale("autoplay_off"))
+
+    @discord.slash_command()
+    async def list_tags(self, ctx):
+        m = MubertWrapper()
+        await ctx.respond("\n".join(m.mubert_tags))
+
+    @staticmethod
+    def tagAutocomplete(self: discord.AutocompleteContext):
+        if self.options["tags"].replace(" ", "") == "":
+            return MubertWrapper().mubert_tags[:10]
+
+        def suggGen(start):
+            for tag in MubertWrapper().mubert_tags:
+                if tag.startswith(start):
+                    yield tag
+
+        t: str = self.options["tags"]
+        tags_list = [x.strip() for x in t.split(",")]
+        stay = tags_list[:-1]
+        complete = tags_list[-1]
+        ret = []
+        generator = suggGen(complete)
+        for i in range(10):
+            try:
+                yield ", ".join(stay+[next(generator)])
+            except StopIteration:
+                return
+        else:
+            return
+
+    @discord.slash_command()
+    async def mubert_tags(self, ctx: discord.ApplicationContext, tags: discord.Option(str, autocomplete=tagAutocomplete), duration: int = 60):
+        await ctx.response.defer(ephemeral=True)
+        tags = [t.strip() for t in tags.split(",")]
+        check = ensureTags(tags)
+        if check is not None:
+            await ctx.respond(f"Can`t find \"{check}\" in tags, perhaps you meant {MubertWrapper().get_tags_for_prompts([check], top_n=1)[0]}")
+            return
+
+        player = wavelink.NodePool.get_node().get_player(ctx.guild)
+        if player is not None:
+            if player.is_playing():
+                await ctx.respond("Disconnect bot before playing mubert")
+                return
+        mubert = MubertWrapper()
+        url = mubert.get_track_by_tags(tags=tags, duration=duration)
+
+        mubert.is_playing = True
+
+        source = discord.FFmpegPCMAudio(url)  # , before_options="-codec:a libmp3lame"
+        voice_channel = ctx.author.voice.channel
+        voice = ctx.channel.guild.voice_client
+
+        def after(*args, **kwargs):
+            mubert.is_playing = False
+            self.bot.loop.create_task(self._disconnect_mubert(ctx.guild_id))
+
+        if voice is None:
+            voice = await voice_channel.connect()
+        elif voice.channel != voice_channel:
+            await voice.disconnect(force=True)
+            voice = await voice_channel.connect()
+        self.voice[ctx.guild_id] = voice
+        voice.play(source, after=after)
+        await ctx.respond(f"{tags}\n{url}")
+
 
     @discord.slash_command()
     async def mubert(self, ctx: discord.ApplicationContext, prompt: str, duration: int = 60):
