@@ -1,6 +1,7 @@
 import asyncio
 import ctypes
 import datetime
+import time
 
 import discord
 import Mubert
@@ -83,6 +84,7 @@ class Music(discord.Cog):
         self.config = config
         bot.loop.create_task(self.connect_nodes())
         self.voice = {}
+        self.tasks = {}
 
     async def connect_nodes(self):
         await self.bot.wait_until_ready()
@@ -286,7 +288,8 @@ class Music(discord.Cog):
 
         def after(*args, **kwargs):
             mubert.is_playing = False
-            self.bot.loop.create_task(self._disconnect_mubert(ctx.guild_id))
+            task = asyncio.ensure_future(self._disconnect_mubert(ctx.guild_id), loop=self.bot.loop)
+            self.tasks[ctx.guild_id] = task
 
         if voice is None:
             voice = await voice_channel.connect()
@@ -317,7 +320,8 @@ class Music(discord.Cog):
 
         def after(*args, **kwargs):
             mubert.is_playing = False
-            self.bot.loop.create_task(self._disconnect_mubert(ctx.guild_id))
+            task = asyncio.ensure_future(self._disconnect_mubert(ctx.guild_id), loop=self.bot.loop)
+            self.tasks[ctx.guild_id] = task
 
         if voice is None:
             voice = await voice_channel.connect()
@@ -331,6 +335,9 @@ class Music(discord.Cog):
     async def _disconnect_mubert(self, guild_id):
         await self.voice[guild_id].disconnect()
         del self.voice[guild_id]
+        await asyncio.sleep(1)
+        self.tasks[guild_id].cancel()
+        del self.tasks[guild_id]
 
     async def find_related(self, track: wavelink.Track, player: wavelink.Player):
         data = get(
