@@ -120,6 +120,24 @@ class Music(discord.Cog):
     async def on_wavelink_node_ready(self, node: wavelink.Node):
         print(f"Node: <{node.identifier}> is ready!", flush=True)
 
+    @discord.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        raw_channels = member.guild.voice_channels
+        channels = {}
+        for ch in raw_channels:
+            channels[ch.id] = [x.id for x in ch.members]
+
+        my_channel = None
+
+        for ch in channels:
+            if self.bot.user.id in channels[ch]:
+                my_channel = member.guild.get_channel(ch)
+
+        if my_channel is not None:
+            if len(my_channel.members) <= 1:
+                await self.stop(member)
+
+
     @discord.slash_command()
     async def play(self, ctx: discord.ApplicationContext, query: str):
         if MubertWrapper().is_playing:
@@ -207,12 +225,13 @@ class Music(discord.Cog):
 
     @discord.slash_command()
     async def stop(self, ctx):
-        if ctx.guild_id in self.voice:
-            await self._disconnect_mubert(ctx.guild_id)
+        if ctx.guild.id in self.voice:
+            await self._disconnect_mubert(ctx.guild.id)
         player = wavelink.NodePool.get_node().get_player(guild=ctx.guild)
         if player is not None:
             await self._stop(player)
-        await ctx.respond(locale("stop"))
+        if type(ctx) is not discord.Member:
+            await ctx.respond(locale("stop"))
 
     @discord.slash_command()
     async def shuffle(self, ctx: discord.ApplicationContext):
