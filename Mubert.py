@@ -93,13 +93,12 @@ class Mubert:
     def generate_track_by_prompt(self, prompt, duration, loop=False):
         _, tags = self.get_tags_for_prompts([prompt, ])[0]
         try:
-            return tags, self.get_track_by_tags(tags, duration, autoplay=True, loop=loop)
+            return tags, self.get_track_by_tags(tags, duration, autoplay=True, loop=loop, maxit=duration/2)
         except Exception as e:
             print(str(e))
         print('\n')
 
 
 # M = Mubert()
-# # a = M.get_track_by_tags(tags=["relaxing", "acoustic", "melodic", "dreamy"], duration=180)
-# a = M.get_tags_for_prompts("cum cum cum cyberpunk 2077", top_n=1)
+# a = M.get_track_by_tags(tags=["relaxing", "acoustic", "melodic", "dreamy"], duration=600)
 # pass
